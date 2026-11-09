@@ -9,6 +9,11 @@
 
 mod actions_record;
 pub mod adjust_params;
+pub mod ai_cmds;
+pub mod ai_enhance_cmds;
+pub mod ai_refs;
+pub mod ai_refs_cmds;
+pub mod ai_regions_cmds;
 mod allocation;
 pub mod build_info;
 mod canvas_geom;
@@ -284,6 +289,8 @@ pub struct Session {
     /// the same check a top-level request sees. `None` runs everything, which is what a local
     /// UI and `photocraft-cli run` do.
     pub authorize: Option<fn(&str, &serde_json::Value) -> Result<()>>,
+    /// Generative AI: network transport, API keys, and an optional user-configured ComfyUI server.
+    pub ai: ai_cmds::AiRuntime,
     /// A further route for File › Print when neither `lp` nor a CUPS server over IPP is
     /// reachable (the XDG Print portal in a Flatpak); see `print_cmds::Spooler`.
     pub print_spooler: Option<print_cmds::Spooler>,

@@ -42,6 +42,7 @@ pub fn load(app: &mut PhotocraftApp) {
     }
     // Applies Memory Usage and the scratch disks even when the stored preferences were reset.
     app.session.apply_prefs();
+    crate::ai_gen_ui::load_keys(app);
     crate::dock::restore(app);
     crate::color_panel_ui::restore(app);
     crate::brush_picker::restore(app);

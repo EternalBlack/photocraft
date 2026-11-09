@@ -107,6 +107,7 @@ impl Group {
             // Photoshop Essentials: Color | Swatches | Gradients | Patterns.
             Group::Color if pro => &["Color", "Swatches", "Gradients", "Patterns"],
             Group::Color => &["Swatches", "Color", "Gradients", "Patterns"],
+            Group::Properties if pro => &["Properties", "Adjustments", "AI Gen"],
             Group::Properties => &["Properties", "Adjustments"],
             Group::Character => &["Character", "Paragraph"],
             Group::Navigator => &["Navigator", "Histogram", "Info"],

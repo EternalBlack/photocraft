@@ -138,7 +138,13 @@ pub fn open_preferences(app: &mut PhotocraftApp, section: &str) -> u64 {
     let section = if SECTIONS.iter().any(|(id, _)| *id == section) { section } else { "general" };
     let working = preference_values(app.session.prefs());
     let order = field_order(app.session.prefs(), &working);
-    open_kind(app, "prefs", "Preferences", json!({"section": section, "values": working, "__order": order}))
+    let id = open_kind(app, "prefs", "Preferences", json!({"section": section, "values": working, "__order": order}));
+    let mut ai = Map::new();
+    crate::ai_gen_ui::prefs_opened(app, &mut ai);
+    if let Some(dialog) = app.ui.dialog_mut(id) {
+        dialog.fields.extend(ai);
+    }
+    id
 }
 
 /// Each section's keys in declaration order (JSON objects sort their keys; the serialised text
@@ -323,7 +329,9 @@ pub fn confirm(app: &mut PhotocraftApp, f: &Map<String, Value>) -> Result<Value,
     match f.get("__prefsui").and_then(Value::as_str).unwrap_or("") {
         "prefs" => {
             let values = f.get("values").cloned().unwrap_or(Value::Null);
-            app.run("prefs.set", json!({"path": "", "value": values}))
+            let result = app.run("prefs.set", json!({"path": "", "value": values}))?;
+            crate::ai_gen_ui::prefs_confirmed(app, f)?;
+            Ok(result)
         }
         "shortcuts" => {
             let overrides = f.get("overrides").cloned().unwrap_or(json!({}));

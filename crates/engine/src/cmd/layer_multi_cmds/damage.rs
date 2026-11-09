@@ -170,6 +170,7 @@ fn layer_pixels_cmp(a: &Layer, b: &Layer, surf: SurfaceCmp) -> bool {
         advanced,
         video: _,
         xmp: _,
+        generation: _,
     } = a;
     *id == b.id
         && *visible == b.visible
@@ -216,7 +217,8 @@ fn layer_pixels_cmp(a: &Layer, b: &Layer, surf: SurfaceCmp) -> bool {
 /// Document-level fields the compositor reads: all must match for a bounded damage claim. The
 /// destructure is exhaustive, so a new `Document` field fails to compile until it is classified
 /// here — compared when it composites, or explicitly ignored (the pixel-irrelevant allowlist:
-/// identity, name, selection, guides, paths, layer comps, annotations, automation state).
+/// identity, name, selection, guides, paths, layer comps, AI references and regions, annotations,
+/// automation state).
 fn doc_pixels_equal(a: &Document, b: &Document) -> bool {
     let Document {
         id: _,
@@ -251,6 +253,8 @@ fn doc_pixels_equal(a: &Document, b: &Document) -> bool {
         variables: _,
         timeline: _,
         file_encoding: _,
+        ai_references: _,
+        ai_regions: _,
     } = a;
     *size == b.size
         && resolution_dpi.to_bits() == b.resolution_dpi.to_bits()
@@ -353,6 +357,8 @@ pub fn selection_only_change(a: &Document, b: &Document) -> bool {
         variables,
         timeline,
         file_encoding,
+        ai_references,
+        ai_regions,
     } = a;
     // The ignored fields above are the pixel ones `pixels_equal_with` already compares.
     pixels_equal_with(a, b, video_frames_equal)
@@ -376,6 +382,8 @@ pub fn selection_only_change(a: &Document, b: &Document) -> bool {
         && *variables == b.variables
         && *timeline == b.timeline
         && *file_encoding == b.file_encoding
+        && *ai_references == b.ai_references
+        && *ai_regions == b.ai_regions
 }
 
 /// Pixels a single history step can have changed between `a` and `b` (the documents on either

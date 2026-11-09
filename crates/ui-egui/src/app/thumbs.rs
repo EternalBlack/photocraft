@@ -166,7 +166,7 @@ pub(crate) fn layer_thumb_frame(layer: &photocraft_doc::Layer, canvas: photocraf
 
 /// Square thumbnail of the document area `frame`, letterboxed, sampling `f(x, y)` in document
 /// space.
-fn thumb_image(frame: photocraft_geom::Rect, side: usize, mut f: impl FnMut(i32, i32) -> [f32; 4]) -> egui::ColorImage {
+pub(crate) fn thumb_image(frame: photocraft_geom::Rect, side: usize, mut f: impl FnMut(i32, i32) -> [f32; 4]) -> egui::ColorImage {
     let (w, h) = (frame.width().max(1) as f32, frame.height().max(1) as f32);
     let scale = w.max(h) / side as f32;
     let (ox, oy) = ((side as f32 - w / scale) / 2.0, (side as f32 - h / scale) / 2.0);

@@ -513,6 +513,9 @@ pub struct Services {
     /// the web (see `prefs_ui`).
     pub load_prefs: Option<LoadTextFn>,
     pub save_prefs: Option<SaveTextFn>,
+    /// Cloud AI API keys, stored separately from preferences.
+    pub load_ai_keys: Option<LoadTextFn>,
+    pub save_ai_keys: Option<SaveTextFn>,
     /// Load/save the bounded deterministic GPU compositor failure memo (native only).
     pub load_gpu_memo: Option<LoadTextFn>,
     pub save_gpu_memo: Option<SaveTextFn>,

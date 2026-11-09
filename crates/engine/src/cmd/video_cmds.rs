@@ -4,7 +4,7 @@
 //! writes it back into the playhead's frame before anything re-syncs. Headless and scriptable. Frame persistence in `.pcraft` is a
 //! follow-up; a saved document keeps the current frame as the layer's content.
 
-use photocraft_doc::{Document, Layer, LayerContent, Timeline, VideoData};
+use photocraft_doc::{Document, Layer, LayerContent, LayerId, Timeline, VideoData, VideoSource};
 use photocraft_raster::Surface;
 use serde_json::{Value, json};
 
@@ -49,6 +49,48 @@ fn check_gif_budget(w: u64, h: u64, frames: u64) -> std::result::Result<(), Stri
 pub fn sync(doc: &mut Document) {
     let cur = doc.timeline.as_ref().map_or(0, |t| t.current);
     sync_layers(&mut doc.layers, cur);
+}
+
+pub fn has_video_layers(layers: &[Layer]) -> bool {
+    layers.iter().any(|layer| layer.video.is_some() || layer.children().is_some_and(has_video_layers))
+}
+
+pub fn insert_video_layer(
+    doc: &mut Document,
+    active: &mut Option<LayerId>,
+    mut layer: Layer,
+    frames: Vec<Surface>,
+    fps: f32,
+    source: VideoSource,
+) -> Result<LayerId> {
+    if frames.is_empty() {
+        return Err(EngineError::Other("an animated image has no frames".into()));
+    }
+    if frames.len() > crate::timeline_cmds::MAX_DURATION {
+        return Err(EngineError::Other(format!("the animation has more than {} frames", crate::timeline_cmds::MAX_DURATION)));
+    }
+    let fps = Timeline::new(1, fps).fps;
+    if doc.timeline.is_none() {
+        doc.timeline = Some(Timeline::new(frames.len(), fps));
+    } else if let Some(timeline) = &mut doc.timeline {
+        let duration = (frames.len() as f64 * f64::from(timeline.fps) / f64::from(fps)).ceil();
+        if duration > crate::timeline_cmds::MAX_DURATION as f64 {
+            return Err(EngineError::Other(format!("the animation needs more than {} timeline frames", crate::timeline_cmds::MAX_DURATION)));
+        }
+        grow_duration(timeline, duration.max(1.0) as usize);
+    }
+    if let (Some(first), LayerContent::Raster(surface)) = (frames.first(), &mut layer.content) {
+        *surface = first.clone();
+    } else {
+        return Err(EngineError::Other("an animated image needs a raster layer".into()));
+    }
+    let mut video = VideoData::new(frames, fps);
+    video.source = source;
+    layer.video = Some(video);
+    let id = crate::layer_place::insert_new(doc, *active, layer, crate::layer_place::Place::AutoEditable);
+    *active = Some(id);
+    sync(doc);
+    Ok(id)
 }
 
 fn sync_layers(layers: &mut [Layer], cur: usize) {
@@ -293,6 +335,43 @@ fn fps_from_delays(delays: &[u32]) -> Option<f32> {
         }
     });
     best.map(|(d, _)| 1000.0 / d as f32)
+}
+
+/// Decode every frame of a generated GIF and return its common display rate.
+pub fn gif_frames(name: &str, bytes: &[u8]) -> Result<(Vec<Document>, Option<f32>)> {
+    let mut frames = Vec::new();
+    let mut delays = Vec::new();
+    let mut kept_bytes = 0u64;
+    let mut refusal = None;
+    let imported = photocraft_io::import_gif_frames(name, bytes, &mut |doc, delay| {
+        if frames.len() >= crate::timeline_cmds::MAX_DURATION {
+            refusal = Some(format!("the animation has more than {} frames", crate::timeline_cmds::MAX_DURATION));
+            return Err(photocraft_io::IoError::Cancelled);
+        }
+        let frame_count = frames.len() as u64 + 1;
+        if let Err(message) = check_gif_budget(u64::from(doc.size.width), u64::from(doc.size.height), frame_count) {
+            refusal = Some(message);
+            return Err(photocraft_io::IoError::Cancelled);
+        }
+        let surface = crate::file_cmds::flattened(&doc, doc.pixel_format());
+        let tile_bytes = u64::from(photocraft_geom::TILE_SIZE.unsigned_abs()).pow(2) * surface.format().bytes_per_pixel() as u64;
+        kept_bytes = kept_bytes.saturating_add(tile_bytes.saturating_mul(surface.tile_count() as u64));
+        if kept_bytes > footage_byte_limit() {
+            refusal = Some(format!("the animation needs more than {} MiB of frames", footage_byte_limit() >> 20));
+            return Err(photocraft_io::IoError::Cancelled);
+        }
+        frames.push(doc);
+        delays.push(delay);
+        Ok(())
+    });
+    if let Some(message) = refusal {
+        return Err(EngineError::Other(message));
+    }
+    imported.map_err(|e| EngineError::Other(format!("`{name}`: {e}")))?;
+    if frames.is_empty() {
+        return Err(EngineError::Other(format!("`{name}` contains no animation frames")));
+    }
+    Ok((frames, fps_from_delays(&delays)))
 }
 
 /// `photocraft_io::import_gif_frames` / `import_webp_frames`.

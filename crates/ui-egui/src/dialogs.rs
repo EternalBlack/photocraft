@@ -707,6 +707,9 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
             if let Some(done) = dialog_body(app, ui, &d, &mut fields, id, interactive) {
                 outcome = Some(done);
             }
+            if outcome.is_none() {
+                crate::ai_gen_ui::open_requested(app, ui.ctx(), &mut fields);
+            }
             crate::field_tab::end(ui.ctx(), tab);
             if let Some(Value::String(key)) = fields.remove(BROWSE_FIELD) {
                 browse_field(app, d.id, &fields, &key);

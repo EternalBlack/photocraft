@@ -350,6 +350,7 @@ impl PhotocraftApp {
             type_panels_ui::windows(self, &ctx);
             analysis_ui::windows(self, &ctx);
             timeline_ui::windows(self, &ctx);
+            crate::ai_gen_ui::window(self, &ctx);
             workspace_ui::windows(self, &ctx);
         }
         palette::show(self, &ctx);

@@ -15,6 +15,7 @@ pub mod blend_if;
 pub mod comps;
 pub mod effects;
 pub mod frame;
+pub mod generation;
 pub mod mode;
 pub mod pattern;
 pub mod slices;
@@ -37,6 +38,9 @@ pub use effects::{
     GradientStyle, Satin, Shadow, StrokeFx, StrokePosition,
 };
 pub use frame::Frame;
+pub use generation::{
+    AiPicture, AiReference, AiRegion, AiRegionKind, Generation, GenerationLora, GenerationMode, GenerationQuality, GenerationReference, GenerationSource,
+};
 pub use mode::{ColorTable, Duotone, DuotoneInk, StackMode};
 pub use pattern::Pattern;
 pub use photocraft_color::{BlendMode, Color, ColorMode, PixelFormat, SampleType};
@@ -685,6 +689,8 @@ pub struct Layer {
     pub advanced: AdvancedBlending,
     /// Layer › Video Layers frame stack (None for a normal layer).
     pub video: Option<VideoData>,
+    /// The generative-AI generation this layer came from; `None` for every other layer.
+    pub generation: Option<Box<Generation>>,
     /// The layer's own XMP packet (Photoshop's `layer.xmpMetadata.rawData`), where scripts and
     /// embedding apps keep data about the layer under their own namespaces. Copied by
     /// [`Layer::duplicate`], as in Photoshop. PSD `shmd` › `cust` › `layerXMP`.
@@ -714,6 +720,7 @@ impl Layer {
             effects: Effects { enabled: true, ..Default::default() },
             label: LabelColor::None,
             content,
+            generation: None,
             frame: None,
             psd_blocks: Vec::new(),
             psd_id: None,
@@ -950,6 +957,10 @@ pub struct Document {
     /// How the document's lossy file was encoded (its JPEG quality, WebP lossy or lossless,
     /// PNG stereo pairing), so a save writes it back the same way rather than at fixed defaults.
     pub file_encoding: FileEncoding,
+    /// Pictures the AI Gen panel's edits can refer to by name.
+    pub ai_references: Vec<AiReference>,
+    /// Text-to-image scene layout regions, front to back.
+    pub ai_regions: Vec<AiRegion>,
 }
 
 /// The encoder settings a document's file was opened or saved with: what File › Save and the
@@ -1018,6 +1029,8 @@ impl Document {
             variables: Variables::default(),
             timeline: None,
             file_encoding: FileEncoding::default(),
+            ai_references: Vec::new(),
+            ai_regions: Vec::new(),
         }
     }
 

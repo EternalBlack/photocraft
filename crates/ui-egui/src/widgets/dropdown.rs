@@ -1,3 +1,5 @@
+use egui::RichText;
+
 use super::panel::chevron_icon;
 use super::scrub::take_label_scrub_name;
 use super::slider::wheel_notches_of;
@@ -11,13 +13,13 @@ pub fn dropdown<T: PartialEq + Clone>(ui: &mut Ui, id: &str, name: &str, current
 /// [`dropdown`] whose option labels are shown exactly as given: names the user typed (a channel
 /// or layer name) must not be translated, unlike the built-in labels [`dropdown`] translates (#5335).
 pub fn dropdown_literal<T: PartialEq + Clone>(ui: &mut Ui, id: &str, name: &str, current: &mut T, options: &[(T, &str)], width: f32) -> bool {
-    let (chosen, _) = dropdown_with(ui, id, name, current, options, width, false, false, &|_| false);
+    let (chosen, _) = dropdown_with(ui, id, name, current, options, width, false, false, &|_| false, &[]);
     !chosen.is_empty()
 }
 
 /// [`dropdown`], also returning the option under the pointer in its open list (live previews).
 pub fn dropdown_hovered<T: PartialEq + Clone>(ui: &mut Ui, id: &str, name: &str, current: &mut T, options: &[(T, &str)], width: f32) -> (bool, Option<T>) {
-    let (chosen, hovered) = dropdown_with(ui, id, name, current, options, width, false, true, &|_| false);
+    let (chosen, hovered) = dropdown_with(ui, id, name, current, options, width, false, true, &|_| false, &[]);
     (!chosen.is_empty(), hovered)
 }
 
@@ -35,7 +37,7 @@ pub fn dropdown_wheel_hovered<T: PartialEq + Clone>(
     options: &[(T, &str)],
     width: f32,
 ) -> (Vec<T>, Option<T>) {
-    dropdown_with(ui, id, name, current, options, width, true, true, &|_| false)
+    dropdown_with(ui, id, name, current, options, width, true, true, &|_| false, &[])
 }
 
 /// [`dropdown_wheel_hovered`] whose open list draws a line above each option (but the first) that
@@ -50,7 +52,21 @@ pub fn dropdown_wheel_grouped<T: PartialEq + Clone>(
     width: f32,
     starts_group: impl Fn(&T) -> bool,
 ) -> (Vec<T>, Option<T>) {
-    dropdown_with(ui, id, name, current, options, width, true, true, &starts_group)
+    dropdown_with(ui, id, name, current, options, width, true, true, &starts_group, &[])
+}
+
+/// [`dropdown`] whose options have labelled groups, each with the index of its first option.
+pub fn dropdown_sectioned<T: PartialEq + Clone>(
+    ui: &mut Ui,
+    id: &str,
+    name: &str,
+    current: &mut T,
+    options: &[(T, &str)],
+    headings: &[(usize, &str)],
+    width: f32,
+) -> bool {
+    let (chosen, _) = dropdown_with(ui, id, name, current, options, width, false, true, &|_| false, headings);
+    !chosen.is_empty()
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -64,6 +80,7 @@ fn dropdown_with<T: PartialEq + Clone>(
     wheel: bool,
     translate: bool,
     starts_group: &dyn Fn(&T) -> bool,
+    headings: &[(usize, &str)],
 ) -> (Vec<T>, Option<T>) {
     let shown = |l: &str| if translate { tl!(l).to_string() } else { l.to_string() };
     let label = options.iter().find(|(v, _)| v == current).map(|(_, l)| shown(l)).unwrap_or_else(|| "—".into());
@@ -80,7 +97,7 @@ fn dropdown_with<T: PartialEq + Clone>(
     let (press, close) = crate::press_menu::PressCombo::before(ui, id);
     let texts: Vec<String> = options.iter().map(|(_, l)| shown(l)).collect();
     let response = combo_list(ui, id, label, width, close, |ui| {
-        fit_widest_option(ui, texts.iter().map(|l| l.as_str()));
+        fit_widest_option(ui, texts.iter().map(|l| l.as_str()).chain(headings.iter().map(|(_, heading)| *heading)));
         // A typed letter jumps to the next option starting with it, ↩ closes the list (#1481).
         let labels: Vec<&str> = texts.iter().map(|l| l.as_str()).collect();
         let shown = options.iter().position(|(v, _)| v == current);
@@ -102,7 +119,14 @@ fn dropdown_with<T: PartialEq + Clone>(
         let pointer = ui.ctx().pointer_hover_pos().filter(|_| ui.rect_contains_pointer(ui.clip_rect()));
         let mut nearest: Option<(f32, &T)> = None;
         for (i, ((v, _), text)) in options.iter().zip(texts.iter()).enumerate() {
-            if i > 0 && starts_group(v) {
+            if let Some((_, heading)) = headings.iter().find(|(at, _)| *at == i) {
+                if i > 0 {
+                    list_separator(ui);
+                }
+                ui.add_space(3.0);
+                ui.label(RichText::new(*heading).small().color(Tokens::get(ui.ctx()).text_faint));
+                ui.add_space(2.0);
+            } else if i > 0 && starts_group(v) {
                 list_separator(ui);
             }
             let item = ui.selectable_label(v == current, text.as_str());

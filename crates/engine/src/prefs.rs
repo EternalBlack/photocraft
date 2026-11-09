@@ -1173,11 +1173,13 @@ pub struct Integrations {
     pub allow_agent_control: bool,
     /// Default control port (0 = only when `--control` is given).
     pub control_port: u32,
+    /// Generative AI: local and cloud models for Window › AI Gen. API keys are stored separately.
+    pub ai: photocraft_aigen::Settings,
 }
 
 impl Default for Integrations {
     fn default() -> Self {
-        Self { allow_agent_control: true, control_port: 0 }
+        Self { allow_agent_control: true, control_port: 0, ai: photocraft_aigen::Settings::default() }
     }
 }
 

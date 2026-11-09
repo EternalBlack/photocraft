@@ -91,6 +91,28 @@ pub struct DocM {
     /// Web slices (user and layer-based; layer ids are remapped on load).
     #[serde(default, skip_serializing_if = "photocraft_doc::Slices::is_empty")]
     pub slices: photocraft_doc::Slices,
+    /// AI Gen references; image bytes are stored as blobs.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ai_references: Vec<AiReferenceM>,
+    /// AI Gen scene layout.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ai_regions: Vec<photocraft_doc::AiRegion>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiReferenceM {
+    #[serde(default)]
+    pub name: String,
+    pub picture: AiPictureM,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AiPictureM {
+    Layer(u64),
+    Document,
+    Image { png: Hash, label: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -226,6 +248,9 @@ pub struct LayerM {
     pub advanced: photocraft_doc::AdvancedBlending,
     #[serde(default)]
     pub video: Option<VideoDataM>,
+    /// The AI generation this layer came from; absent in older bundles and non-AI layers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generation: Option<photocraft_doc::Generation>,
     /// The layer's own XMP packet (missing in older files = none).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub xmp: Option<String>,

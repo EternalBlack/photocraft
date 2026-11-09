@@ -196,6 +196,8 @@ pub(crate) fn layerless_file(
     if let Some(data) = crate::annotations_map::fresh_scale_resource(doc) {
         resources.push(ImageResource::new(crate::annotations_map::MEASUREMENT_SCALE, data));
     }
+    crate::ai_refs_map::push(doc, &Default::default(), &mut resources);
+    crate::ai_regions_map::push(doc, &mut resources);
     resources.extend(crate::annotations_map::fresh_count_resource(doc, warnings));
     resources.push(version_info_resource(true));
     // Document-level tagged blocks (patterns, notes, ...) are valid without a layer section; a

@@ -5,15 +5,15 @@ use std::sync::Arc;
 
 use photocraft_color::{PixelFormat, SampleType};
 use photocraft_doc::{
-    AlphaChannel, CompAppearance, CompLayerState, DocId, Document, Effects, FillCache, Group, Layer, LayerComp, LayerContent, LayerId, LayerMask, Metadata,
-    NamedPath, Pattern, ShapeLayer, SmartContentsId, SmartObject, SmartSource, TextLayer,
+    AiPicture, AiReference, AlphaChannel, CompAppearance, CompLayerState, DocId, Document, Effects, FillCache, Group, Layer, LayerComp, LayerContent, LayerId,
+    LayerMask, Metadata, NamedPath, Pattern, ShapeLayer, SmartContentsId, SmartObject, SmartSource, TextLayer,
 };
 use photocraft_geom::{TILE_SIZE, TileCoord};
 use photocraft_raster::{Surface, Tile, decode_pixel, encode_pixel};
 
 use crate::manifest::{
-    ChannelM, CompAppearanceM, CompStateM, ContentM, DocM, EffectsM, FillCacheM, Hash, LayerCompM, LayerM, MaskM, MetadataM, NamedPathM, PatternM,
-    SmartSourceM, SurfaceM, TileRef, VectorPreviewM,
+    AiPictureM, AiReferenceM, ChannelM, CompAppearanceM, CompStateM, ContentM, DocM, EffectsM, FillCacheM, Hash, LayerCompM, LayerM, MaskM, MetadataM,
+    NamedPathM, PatternM, SmartSourceM, SurfaceM, TileRef, VectorPreviewM,
 };
 use crate::{FormatError, Result};
 
@@ -23,6 +23,28 @@ pub use photocraft_doc::MAX_GROUP_DEPTH;
 
 fn too_deep() -> FormatError {
     FormatError::LimitExceeded(format!("layer groups nested deeper than {MAX_GROUP_DEPTH}"))
+}
+
+fn remap_generation_sources(layer: &mut Layer, ids: &std::collections::HashMap<u64, LayerId>, depth: usize) {
+    use photocraft_doc::GenerationSource;
+    if let Some(generation) = &mut layer.generation {
+        let remap = |source: GenerationSource| match source {
+            GenerationSource::Layer(raw) => ids.get(&raw).map(|id| GenerationSource::Layer(id.0)),
+            GenerationSource::Document(_) | GenerationSource::DocumentLayer { .. } => None,
+        };
+        generation.source = generation.source.and_then(remap);
+        generation.references = std::mem::take(&mut generation.references)
+            .into_iter()
+            .filter_map(|reference| Some(photocraft_doc::GenerationReference { source: remap(reference.source)?, ..reference }))
+            .collect();
+    }
+    if depth <= MAX_GROUP_DEPTH
+        && let Some(children) = layer.children_mut()
+    {
+        for child in children {
+            remap_generation_sources(child, ids, depth + 1);
+        }
+    }
 }
 
 /// Refuses to save a document the loader would reject for its group nesting.
@@ -228,6 +250,7 @@ fn layer_m(l: &Layer, sink: &mut dyn Sink) -> LayerM {
         blend_if: l.blend_if.clone(),
         advanced: l.advanced,
         video: l.video.as_ref().map(|v| video_m(v, sink)),
+        generation: l.generation.as_deref().cloned(),
         xmp: l.xmp.as_deref().map(str::to_string),
     }
 }
@@ -282,6 +305,19 @@ pub(crate) fn doc_m(d: &Document, sink: &mut dyn Sink) -> DocM {
         notes: d.notes.clone(),
         text_styles: d.text_styles.clone(),
         slices: d.slices.clone(),
+        ai_references: d
+            .ai_references
+            .iter()
+            .map(|r| AiReferenceM {
+                name: r.name.clone(),
+                picture: match &r.picture {
+                    AiPicture::Layer(id) => AiPictureM::Layer(*id),
+                    AiPicture::Document => AiPictureM::Document,
+                    AiPicture::Image { png, label } => AiPictureM::Image { png: sink.blob(png), label: label.clone() },
+                },
+            })
+            .collect(),
+        ai_regions: d.ai_regions.clone(),
     }
 }
 
@@ -590,6 +626,7 @@ impl Loader<'_> {
             blend_if: m.blend_if.clone(),
             advanced: m.advanced,
             video: m.video.as_ref().map(|v| self.video(v)).transpose()?,
+            generation: m.generation.clone().map(Box::new),
             xmp: m.xmp.as_deref().map(Arc::from),
         })
     }
@@ -616,7 +653,10 @@ impl Loader<'_> {
             max_ids(&m.layers, 0, &mut max)?;
             self.preserve_ids = reserve_ids_through(max);
         }
-        let layers = m.layers.iter().map(|l| self.layer(l, 0)).collect::<Result<Vec<_>>>()?;
+        let mut layers = m.layers.iter().map(|l| self.layer(l, 0)).collect::<Result<Vec<_>>>()?;
+        for layer in &mut layers {
+            remap_generation_sources(layer, &self.id_map, 0);
+        }
         let mut channels = Vec::with_capacity(m.channels.len());
         for c in &m.channels {
             channels.push(self.channel(c)?);
@@ -665,6 +705,18 @@ impl Loader<'_> {
                 }
             }
         }
+        let mut ai_references = Vec::with_capacity(m.ai_references.len());
+        for reference in &m.ai_references {
+            let picture = match &reference.picture {
+                AiPictureM::Layer(raw) => match self.id_map.get(raw) {
+                    Some(id) => AiPicture::Layer(id.0),
+                    None => continue,
+                },
+                AiPictureM::Document => AiPicture::Document,
+                AiPictureM::Image { png, label } => AiPicture::Image { png: self.fetch.blob(png)?, label: label.clone() },
+            };
+            ai_references.push(AiReference { name: reference.name.clone(), picture });
+        }
         // Variable targets follow their layers through id remapping; a dangling one keeps a
         // non-colliding placeholder so it stays a missing-layer skip rather than driving an
         // unrelated layer (#4969). With preserved ids the map is the identity and defs stay as saved.
@@ -701,6 +753,8 @@ impl Loader<'_> {
             variables,
             timeline: m.timeline.clone(),
             file_encoding: m.file_encoding,
+            ai_references,
+            ai_regions: m.ai_regions.clone(),
             layer_comps,
             last_applied_comp: m.last_applied_comp,
             last_document_state,

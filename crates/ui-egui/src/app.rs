@@ -31,6 +31,7 @@ pub(crate) use targets::adjustment_layer_active;
 #[cfg(test)]
 pub(crate) use thumbs::layer_thumb_frame;
 pub use thumbs::surface_fingerprint;
+pub(crate) use thumbs::thumb_image;
 
 impl PhotocraftApp {
     pub fn new(mut session: Session, mut services: Services) -> Self {

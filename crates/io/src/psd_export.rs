@@ -614,6 +614,7 @@ impl Ex<'_> {
             }
         }
         crate::comps_map::artboard_block(&self.guides, l, &mut raw);
+        crate::generation_map::put(&mut raw, l, &self.layer_ids);
         if let Some((comps, last)) = &self.comps {
             // Ids are assigned to every layer before emitting.
             let id = self.layer_ids.get(&l.id).copied().unwrap_or(0);

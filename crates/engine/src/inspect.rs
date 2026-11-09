@@ -132,6 +132,9 @@ fn layer_sel(
         "linkGroup": l.link_group,
         "hasXmp": l.xmp.is_some(),
     });
+    if let Some(generation) = &l.generation {
+        v["generation"] = json!(generation);
+    }
     match &l.content {
         LayerContent::Group(g) => {
             v["children"] = Value::Array(g.children.iter().rev().map(|c| layer_sel(c, selected, instances, meta, detail)).collect());

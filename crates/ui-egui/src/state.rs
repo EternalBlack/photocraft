@@ -475,6 +475,9 @@ pub struct UiState {
     #[serde(default)]
     pub analysis: crate::analysis_ui::AnalysisUi,
     pub timeline: crate::timeline_ui::TimelineUi,
+    /// Window › AI Gen: the selected model, prompt, and generation options.
+    #[serde(default)]
+    pub ai_gen: crate::ai_gen_ui::AiGenUi,
     /// Slice and Slice Select tools (see `slice_ui`).
     #[serde(default)]
     pub slices: crate::slice_ui::SliceUi,
@@ -659,6 +662,7 @@ impl Default for UiState {
             type_panels: Default::default(),
             analysis: Default::default(),
             timeline: Default::default(),
+            ai_gen: Default::default(),
             slices: Default::default(),
             frame_tool: Default::default(),
             task_bar_shown: None,

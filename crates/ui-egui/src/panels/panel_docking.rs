@@ -29,6 +29,7 @@ const PANELS: &[(&str, &str, Group)] = &[
     ("patterns", "Patterns", Group::Color),
     ("properties", "Properties", Group::Properties),
     ("adjustments", "Adjustments", Group::Properties),
+    ("aiGen", "AI Gen", Group::Properties),
     ("character", "Character", Group::Character),
     ("paragraph", "Paragraph", Group::Character),
     ("navigator", "Navigator", Group::Navigator),
@@ -1130,6 +1131,10 @@ fn fillers(layout: &Layout<String>) -> std::collections::HashSet<String> {
 fn body(app: &mut PhotocraftApp, ui: &mut egui::Ui, id: &str) {
     let Some((_, label, group)) = PANELS.iter().find(|p| p.0 == id) else { return };
     let pro = crate::theme::Tokens::get(ui.ctx()).pro;
+    if id == "aiGen" && !pro {
+        crate::ai_gen_ui::panel(app, ui, true);
+        return;
+    }
     let Some(tab) = group.tabs(pro).iter().position(|name| name == label) else { return };
     // The native group's selected tab is this panel while its body draws, so a custom group
     // holding several of the group's panels keeps the selection `sync_visibility` chose.
@@ -1591,8 +1596,9 @@ impl craft_ui::docking::DockContent<String> for PanelContent<'_> {
     fn dock_heights(&self, id: &String) -> Option<DockHeights> {
         let group = PANELS.iter().find(|p| p.0 == id)?.2;
         let body = |height: f32| (height - self.strip).max(0.0);
+        let default = if id == "aiGen" { crate::ai_gen_ui::wanted_height(self.app) } else { group.default_height() };
         let fill = if self.fillers.contains(id) { body(group.preferred_fill()).max(1.0) } else { 0.0 };
-        Some(DockHeights::new(body(group.default_height())).compact(body(group.compact_height())).fill(fill))
+        Some(DockHeights::new(body(default)).compact(body(group.compact_height())).fill(fill))
     }
     fn panel_menu(&mut self, ui: &mut egui::Ui, id: &String) {
         panel_menu(self.app, ui, id);

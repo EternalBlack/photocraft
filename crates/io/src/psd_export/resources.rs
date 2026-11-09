@@ -96,6 +96,12 @@ pub(crate) fn keep_imported_resource(doc: &Document, id: u16, data: &[u8]) -> bo
     if !crate::guides_map::keep_resource(doc, id, data) {
         return false;
     }
+    if crate::ai_refs_map::is_ours(id, data) && !doc.ai_references.is_empty() {
+        return false;
+    }
+    if crate::ai_regions_map::is_ours(id, data) && !doc.ai_regions.is_empty() {
+        return false;
+    }
     // A preserved clipping-path resource is only valid while it names the current one.
     if id == crate::vector_map::CLIPPING_PATH {
         let n = usize::from(data.first().copied().unwrap_or(0));

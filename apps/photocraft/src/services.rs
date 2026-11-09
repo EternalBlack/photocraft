@@ -341,6 +341,10 @@ pub fn prefs_file() -> Option<PathBuf> {
     config_dir().map(|d| d.join("preferences.json"))
 }
 
+pub fn ai_keys_file() -> Option<PathBuf> {
+    config_dir().map(|d| d.join("ai-keys.json"))
+}
+
 fn gpu_memo_file() -> Option<PathBuf> {
     config_dir().map(|d| d.join("gpu-compositor.json"))
 }
@@ -825,8 +829,10 @@ pub fn native(automation: Option<photocraft_automation::AuthorizedWorkspace>) ->
         }),
         clipboard_unreadable: Some(Box::new(move || clip_unreadable.get())),
         load_prefs: Some(Box::new(|| std::fs::read_to_string(prefs_file()?).ok())),
+        load_ai_keys: Some(Box::new(|| std::fs::read_to_string(ai_keys_file()?).ok())),
         photoshop_shortcuts: Some(Box::new(|| crate::photoshop_settings::live_keyboard_shortcuts(&|k| std::env::var_os(k)))),
         save_prefs: Some(Box::new(|text: &str| write_atomic(&prefs_file().ok_or("no config directory")?, text.as_bytes()))),
+        save_ai_keys: Some(Box::new(|text: &str| write_atomic(&ai_keys_file().ok_or("no config directory")?, text.as_bytes()))),
         load_gpu_memo: Some(Box::new(load_gpu_memo_text)),
         save_gpu_memo: Some(Box::new(|text: &str| {
             if text.len() > photocraft_ui_egui::gpu_memo::MAX_GPU_MEMO_BYTES {

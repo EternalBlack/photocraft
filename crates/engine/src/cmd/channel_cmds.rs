@@ -129,6 +129,7 @@ pub use planes::{
 pub(crate) use refs::source_spec;
 pub use refs::{Blending, ChanRef, parse_ref};
 use selection::{load_selection, quick_mask, save_selection};
+pub(crate) use selection::{quick_mask_from, selection_from};
 use spot::{is_flat, merge, merge_spot, mergeable, split};
 use targeting::{SLOT_KEY, target_cmd, target_slot};
 pub(crate) use targeting::{

@@ -108,7 +108,7 @@ pub(super) fn load_selection(s: &mut Session, p: &Value) -> Result<Value> {
 /// mask that shows no colour: white (nothing masked, as in Photoshop) when the colour indicates
 /// masked areas, black (nothing selected) when it indicates selected areas. White and "no
 /// selection" are told apart by [`Document::quick_mask_unselected`].
-fn quick_mask_from(doc: &Document, o: &QuickMaskOptions) -> AlphaChannel {
+pub(crate) fn quick_mask_from(doc: &Document, o: &QuickMaskOptions) -> AlphaChannel {
     let area = doc.bounds();
     let fmt = channel_format(doc);
     let surface = match &doc.selection {
@@ -134,7 +134,7 @@ pub(super) fn uniform(vals: &[f32], target: f32) -> bool {
 
 /// The selection a Quick Mask channel turns back into. All white is Select All, unless Quick
 /// Mask was entered with no selection and the white is its untouched masked-areas start.
-fn selection_from(doc: &Document, ch: &AlphaChannel) -> Option<Surface> {
+pub(crate) fn selection_from(doc: &Document, ch: &AlphaChannel) -> Option<Surface> {
     let area = doc.bounds();
     let vals = read_plane(&ch.surface, area);
     if doc.quick_mask_unselected && ch.indicates != ColorIndicates::SelectedAreas && uniform(&vals, 1.0) {

@@ -238,6 +238,20 @@ pub fn checkbox(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
     resp
 }
 
+/// A compact check box with an accessible name but no visible label.
+pub fn checkbox_named(ui: &mut Ui, on: &mut bool, name: &str) -> Response {
+    let t = Tokens::get(ui.ctx());
+    let (rect, mut resp) = ui.allocate_exact_size(vec2(14.0, 14.0), Sense::CLICK);
+    resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+    check_box(ui.painter(), rect, *on, resp.hovered(), resp.is_pointer_button_down_on(), &t);
+    if resp.clicked() {
+        *on = !*on;
+        resp.mark_changed();
+    }
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, ui.is_enabled(), *on, tl!(name)));
+    resp
+}
+
 /// The fill of a check box: the accent when `on`, else the field colour. While it's pressed
 /// (the mouse is down on it or on its label) Photoshop shows that a release will act: an
 /// unchecked box darkens a little and a checked one turns a little less opaque (#4476).

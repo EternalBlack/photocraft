@@ -37,6 +37,8 @@
 pub mod abr_map;
 mod adjust_map;
 pub mod affinity;
+pub mod ai_refs_map;
+pub mod ai_regions_map;
 pub mod annotations_map;
 pub mod asl_map;
 pub mod blocks;
@@ -50,6 +52,7 @@ pub mod export_estimate;
 mod exr_native;
 pub mod exr_parts;
 mod flat;
+pub mod generation_map;
 mod gradient_bake;
 pub mod guides_map;
 mod png_steps;

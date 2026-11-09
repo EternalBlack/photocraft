@@ -307,6 +307,7 @@ pub(super) fn stroke_params(app: &PhotocraftApp, d: &Drag, points: &[Vec<f64>]) 
     if crate::eraser_ui::block_mode(app, tool) {
         p["block"] = json!(true);
     }
+    crate::ai_gen_ui::mask_stroke(app, d.erase, &mut p);
     p
 }
 
