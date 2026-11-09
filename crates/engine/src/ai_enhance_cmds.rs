@@ -1,6 +1,6 @@
 //! Prompt enhancement: a cloud text model rewrites a prompt for the image models.
 //!
-//! - `ai.enhancePrompt` sends the prompt to the service chosen in Preferences › Integrations › AI ›
+//! - `ai.enhancePrompt` sends the prompt to the service chosen in Preferences › AI Gen ›
 //!   Prompt Enhancement (`integrations.ai.enhance`: OpenRouter, OpenAI, xAI, Gemini or
 //!   Anthropic, with a model of its own and a timeout) and returns the rewritten prompt. It is a
 //!   background job: cancellable, and its progress says how long the answer has been awaited.
@@ -89,7 +89,7 @@ fn enhance_prompt(s: &mut Session, p: &Value) -> Result<Value> {
     }
     let key = s.ai.text_key(chosen.provider);
     if key.is_empty() {
-        return Err(EngineError::Other(format!("{} needs an API key: add one in Preferences › Integrations › AI › API Keys", chosen.provider.label())));
+        return Err(EngineError::Other(format!("{} needs an API key: add one in Preferences › AI Gen › API Keys", chosen.provider.label())));
     }
     crate::jobs::run(
         s,

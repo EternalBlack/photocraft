@@ -1,5 +1,5 @@
 //! LoRAs: small add-ons to a local model's weights that steer it to a style, a character or a
-//! subject. Each model keeps the ones it offers in its settings (Preferences › Integrations › AI:
+//! subject. Each model keeps the ones it offers in its settings (Preferences › AI Gen:
 //! the file, as ComfyUI's `models/loras` names it, a name, the strength it starts at and its
 //! trigger words; [`photocraft_aigen::Model::loras`]). The panel's Advanced section adds them
 //! to the model's generations, up to [`MAX_LORAS`], each with a strength slider, an eye to leave

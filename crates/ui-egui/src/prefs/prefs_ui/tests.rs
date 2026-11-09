@@ -139,7 +139,8 @@ fn preferences_search_matches_editable_fields_across_sections() {
     assert!(contains("performance", "performance"));
     assert!(contains("interface.uiScale", "interface"));
     assert!(preference_sections(&values, "this setting does not exist").is_empty());
-    assert_eq!(preference_sections(&values, "").len(), SECTIONS.len());
+    assert_eq!(preference_sections(&values, "").len(), SECTIONS.len() + 1);
+    assert!(preference_sections(&values, "").last().is_some_and(|(id, title)| *id == "aiGen" && *title == "AI Gen"));
 }
 
 /// The preview language controls translated search; English schema paths keep their aliases.

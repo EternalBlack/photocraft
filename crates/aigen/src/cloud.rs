@@ -33,7 +33,7 @@ fn api_model(model: &Model) -> Result<&str> {
     let id = model.api_model.trim();
     // The id becomes part of a URL (Gemini): keep it to what model ids are made of.
     if id.is_empty() || id.len() > 100 || !id.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | '_' | ':')) {
-        return Err(Error::Config(format!("{}: `{id}` is not a model id (Preferences › Integrations › AI)", model.name)));
+        return Err(Error::Config(format!("{}: `{id}` is not a model id (Preferences › AI Gen › Manage Models)", model.name)));
     }
     Ok(id)
 }
@@ -41,7 +41,7 @@ fn api_model(model: &Model) -> Result<&str> {
 fn key_of<'a>(model: &Model, key: &'a str) -> Result<&'a str> {
     let key = key.trim();
     if key.is_empty() || key.chars().any(|c| c.is_control()) {
-        return Err(Error::Config(format!("{} needs an API key: add it in Preferences › Integrations › AI › API Keys", model.provider.label())));
+        return Err(Error::Config(format!("{} needs an API key: add it in Preferences › AI Gen › API Keys", model.provider.label())));
     }
     Ok(key)
 }
@@ -412,9 +412,9 @@ fn bfl_error(status: u16, v: &Value) -> Error {
         _ => None,
     };
     let hint = match status {
-        401 | 403 => " (check the API key in Preferences › Integrations › AI › API Keys)",
+        401 | 403 => " (check the API key in Preferences › AI Gen › API Keys)",
         402 => " (the account is out of credits)",
-        404 => " (check the model id in Preferences › Integrations › AI: it is the name of the endpoint, such as flux-3-image)",
+        404 => " (check the model id in Preferences › AI Gen › Manage Models: it is the name of the endpoint, such as flux-3-image)",
         429 => " (too many requests at once)",
         _ => "",
     };
@@ -493,8 +493,8 @@ fn api_error(provider: Provider, status: u16, v: &Value) -> Error {
     }
     let msg = raw.map(|m| clip(m, 400));
     let hint = match status {
-        401 | 403 => " (check the API key in Preferences › Integrations › AI › API Keys)",
-        404 => " (check the model id in Preferences › Integrations › AI)",
+        401 | 403 => " (check the API key in Preferences › AI Gen › API Keys)",
+        404 => " (check the model id in Preferences › AI Gen › Manage Models)",
         429 => " (rate limit or quota reached)",
         _ => "",
     };

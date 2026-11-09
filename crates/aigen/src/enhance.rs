@@ -1,7 +1,7 @@
 //! Prompt enhancement: a cloud text model rewrites the AI Gen panel's prompt so the image model
 //! gets a richer, clearer one (subject, setting, light, style), keeping what the user wrote.
 //!
-//! One of five services does it, chosen in Preferences › Integrations › AI › Prompt Enhancement
+//! One of five services does it, chosen in Preferences › AI Gen › Prompt Enhancement
 //! ([`EnhanceSettings`]): OpenRouter, OpenAI, xAI (Grok), Google Gemini or Anthropic (Claude).
 //! OpenAI, xAI and Gemini use the same API key as their image models.
 //!
@@ -489,7 +489,7 @@ fn model_id(provider: TextProvider, model: &str) -> Result<String> {
 fn checked_key(provider: TextProvider, key: &str) -> Result<String> {
     let key = key.trim();
     if key.is_empty() {
-        return Err(Error::Config(format!("{} needs an API key: add one in Preferences › Integrations › AI › API Keys", provider.label())));
+        return Err(Error::Config(format!("{} needs an API key: add one in Preferences › AI Gen › API Keys", provider.label())));
     }
     if key.len() > 2048 || key.chars().any(|c| c.is_control() || c == ' ') {
         return Err(Error::Config(format!("the {} API key is not valid: paste it again", provider.label())));
@@ -552,8 +552,8 @@ fn api_error(provider: TextProvider, model: &str, status: u16, v: &Value) -> Err
         .filter(|m| !m.is_empty())
         .unwrap_or_else(|| format!("HTTP {status}"));
     let hint = match status {
-        401 | 403 => " Check the API key in Preferences › Integrations › AI › Prompt Enhancement.".to_string(),
-        404 => format!(" `{model}` may not be one of its models: choose another in Preferences › Integrations › AI › Prompt Enhancement."),
+        401 | 403 => " Check the API key in Preferences › AI Gen › Prompt Enhancement.".to_string(),
+        404 => format!(" `{model}` may not be one of its models: choose another in Preferences › AI Gen › Prompt Enhancement."),
         402 | 429 => " The account may be out of credit, or asked too often: wait a moment, or check its billing.".to_string(),
         _ => String::new(),
     };
@@ -824,7 +824,7 @@ fn send_watched(transport: &Arc<dyn Transport>, request: Request, control: &Cont
         let elapsed = start.elapsed();
         if elapsed.as_secs() >= timeout {
             return Err(Error::Network(format!(
-                "no answer within {timeout} s. Try again, or allow longer in Preferences › Integrations › AI › Prompt Enhancement › Settings"
+                "no answer within {timeout} s. Try again, or allow longer in Preferences › AI Gen › Prompt Enhancement › Settings"
             )));
         }
         (control.progress)(creep(elapsed.as_secs_f32()), &format!("{waiting} {} s of {timeout} s", elapsed.as_secs()));

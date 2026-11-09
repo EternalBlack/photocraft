@@ -6,10 +6,11 @@ not bundle or install models.
 
 ## Getting started
 
-1. Open **Edit › Preferences › Integrations** and choose the **AI** page. Add a cloud model and
+1. Open **Edit › Preferences › AI Gen**. Add a cloud model and
    its provider API key, or configure the address of a ComfyUI server that you have installed and
    started yourself. Use **Connect** to read the server's model files and **Scan Server** to add
-   detected models, or use **Add Model** to configure one manually.
+   detected models, including an entry for each checkpoint. The model list starts empty; use
+   **Add Model** to configure one manually or **Restore Defaults** to add recommended models.
 2. Open **Window › AI Gen**, choose a model, enter a prompt, and select **Generate**. With the
    prompt focused, ⌘/Ctrl+Return also starts generation. The gear opens the selected model's
    settings.
@@ -37,10 +38,12 @@ intent. **Load from layer** restores the prompt and generation options stored on
 
 ## Models and credentials
 
-The Integrations › AI preferences let you set the ComfyUI server URL and timeout, connect to the server,
-detect model files, add or remove cloud and local models, and edit each model's settings. The
-cloud and local model visibility can be toggled independently without removing either set of
-models. Local model settings include architecture-specific files such as HiDream O1 refiners and
+The AI Gen preferences let you set the ComfyUI server URL and timeout, connect to the server,
+detect model files, add or remove cloud and local models, and edit each model's settings. Scan
+Server reports the number of checkpoints rather than the total number of files across every
+ComfyUI model folder, and adds a model entry for every detected checkpoint. It guesses a supported
+architecture from known checkpoint names when possible and otherwise configures a generic
+checkpoint model. Local model settings include architecture-specific files such as HiDream O1 refiners and
 Qwen inpainting ControlNets; cloud settings expose provider-specific quality and size options. The
 supported local model architectures and their ComfyUI workflows are defined in
 [`crates/aigen/src/model.rs`](../crates/aigen/src/model.rs) and
@@ -75,6 +78,6 @@ state is exposed as `ai_gen` in the UI state.
   model detection, image sizing, and the HTTP transport seam.
 - [`crates/engine/src/ai_cmds.rs`](../crates/engine/src/ai_cmds.rs): generation and AI commands.
 - [`crates/ui-egui/src/ai_gen_ui.rs`](../crates/ui-egui/src/ai_gen_ui.rs): the AI Gen panel and
-  Integrations preferences controls.
+  preferences controls.
 - [`apps/photocraft/src/services.rs`](../apps/photocraft/src/services.rs): separate API-key file
   persistence; the native app supplies the HTTP transport.

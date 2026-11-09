@@ -42,7 +42,7 @@ fn file<'a>(name: &'a str, what: &str, model: &Model) -> Result<&'a str> {
     let name = name.trim();
     if name.is_empty() {
         let label = if model.name.is_empty() { model.family.label() } else { model.name.as_str() };
-        return Err(Error::Config(format!("{label}: choose {what} in Preferences › Integrations › AI › Manage Models")));
+        return Err(Error::Config(format!("{label}: choose {what} in Preferences › AI Gen › Manage Models")));
     }
     Ok(name)
 }
@@ -756,10 +756,7 @@ fn finite(v: f64, fallback: f64) -> f64 {
 fn custom_workflow(model: &Model, job: &Job, inpaint: Option<&Inpaint<'_>>) -> Result<Value> {
     let text = model.workflow.trim();
     if text.is_empty() {
-        return Err(Error::Config(format!(
-            "{}: paste a workflow (ComfyUI › Workflow › Export (API)) in Preferences › Integrations › AI › Manage Models",
-            model.name
-        )));
+        return Err(Error::Config(format!("{}: paste a workflow (ComfyUI › Workflow › Export (API)) in Preferences › AI Gen › Manage Models", model.name)));
     }
     let mut v: Value = serde_json::from_str(text).map_err(|e| Error::Config(format!("{}: the workflow is not valid JSON: {e}", model.name)))?;
     let is_api = v.as_object().is_some_and(|o| !o.is_empty() && o.values().all(|n| n.get("class_type").is_some_and(Value::is_string)));
@@ -828,7 +825,7 @@ fn substitute(v: &mut Value, numbers: &[(&str, Value)], texts: &[(&str, &str)], 
 pub fn base_url(url: &str) -> Result<String> {
     let url = url.trim().trim_end_matches('/');
     if !(url.starts_with("http://") || url.starts_with("https://")) || url.len() < 9 {
-        return Err(Error::Config(format!("the ComfyUI address `{url}` is not an http:// URL (Preferences › Integrations › AI › ComfyUI)")));
+        return Err(Error::Config(format!("the ComfyUI address `{url}` is not an http:// URL (Preferences › AI Gen › ComfyUI)")));
     }
     Ok(url.to_string())
 }

@@ -1,6 +1,6 @@
 //! Prompt enhancement in the shell: the AI Gen panel's Enhance Prompt button beside the model
 //! (Shift-click puts back the prompt as it was), the veil over the prompt while the answer is
-//! awaited (what it is waiting for, for how long, and Cancel), and Preferences › Integrations › AI ›
+//! awaited (what it is waiting for, for how long, and Cancel), and Preferences › AI Gen ›
 //! Prompt Enhancement: Local Models (none yet), Cloud Models (the one service that rewrites
 //! prompts, a radio group, each with its model and a button to its key) and Settings (the
 //! length, the timeout and the instructions, edited in place).
@@ -59,7 +59,7 @@ pub(super) fn blocked(app: &PhotocraftApp) -> Option<String> {
     }
     let (provider, _) = chosen(app);
     if !provider.is_local() && app.session.ai.text_key(provider).is_empty() {
-        return Some(format!("{} {}", provider.label(), tr("needs an API key: Preferences › Integrations › AI › API Keys")));
+        return Some(format!("{} {}", provider.label(), tr("needs an API key: Preferences › AI Gen › API Keys")));
     }
     if app.ui.ai_gen.prompt.trim().is_empty() {
         return Some(tr("Write a prompt first: Enhance adds detail to it").to_string());
@@ -202,7 +202,7 @@ pub(super) fn tip(app: &PhotocraftApp) -> String {
         tr("Rewrite the prompt with"),
         provider.short_label(),
         tr(
-            "It adds detail about the subject, setting, light and style, and keeps what you wrote. Choose the service in Preferences › Integrations › AI › Prompt Enhancement"
+            "It adds detail about the subject, setting, light and style, and keeps what you wrote. Choose the service in Preferences › AI Gen › Prompt Enhancement"
         )
     )
 }
@@ -402,7 +402,7 @@ pub(super) fn veil(ui: &mut egui::Ui, rect: egui::Rect, job: &JobInfo, who: &str
     cancel
 }
 
-// ---------- Preferences › Integrations › AI › Prompt Enhancement ----------
+// ---------- Preferences › AI Gen › Prompt Enhancement ----------
 
 /// The page's tab in front (`local|cloud|settings`), the instructions being edited in the
 /// Settings tab (until Save), and the services whose models were asked for once when their list

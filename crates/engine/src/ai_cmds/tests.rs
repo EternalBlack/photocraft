@@ -442,9 +442,9 @@ fn settings_survive_a_preferences_round_trip() {
     assert_eq!(again.prefs().integrations.ai, s.prefs().integrations.ai);
     assert_eq!(again.prefs().integrations.ai.models[0].unet, "z_image_turbo_bf16.safetensors");
     // Preferences written before this section existed still load.
-    // They get the models a new installation lists.
+    // A new installation's model list starts empty.
     again.load_prefs_json(r#"{"integrations":{"allowAgentControl":false}}"#).unwrap();
-    assert_eq!(again.prefs().integrations.ai.models, Model::defaults());
+    assert!(again.prefs().integrations.ai.models.is_empty());
     // A list the user emptied stays empty.
     again.load_prefs_json(r#"{"integrations":{"ai":{"models":[]}}}"#).unwrap();
     assert!(again.prefs().integrations.ai.models.is_empty());

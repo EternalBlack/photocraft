@@ -17,6 +17,8 @@ impl Transport for Fake {
             photocraft_codecs::encode(&img, photocraft_codecs::Format::Png, &Default::default()).unwrap()
         } else if r.url.ends_with("/models/diffusion_models") {
             br#"["z_image_turbo_bf16.safetensors","flux1-dev.safetensors","qwen_image_edit_2511_bf16.safetensors"]"#.to_vec()
+        } else if r.url.ends_with("/models/checkpoints") {
+            br#"["sdxl_base_1.0.safetensors","unknown_checkpoint.safetensors"]"#.to_vec()
         } else if r.url.contains("/models/") {
             br#"["ae.safetensors","qwen_3_4b.safetensors"]"#.to_vec()
         } else {
@@ -151,17 +153,13 @@ fn the_panel_draws_in_every_state() {
 }
 
 #[test]
-fn model_visibility_preferences_filter_the_panel_list() {
+fn configured_cloud_and_local_models_are_offered_without_kind_switches() {
     let mut app = app();
     app.session.ai.set_key(Provider::Openai, "test-key");
     add_model(&mut app, z_image("local"));
     add_model(&mut app, Model { id: "cloud".into(), ..Model::cloud(Provider::Openai, "GPT Image", "gpt-image-2", true) });
     assert_eq!(enabled_models(&app).iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["cloud", "local"]);
-
-    app.run("prefs.set", json!({"path": "integrations.ai.showCloud", "value": false})).unwrap();
-    assert_eq!(enabled_models(&app).iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["local"]);
-    app.run("prefs.set", json!({"path": "integrations.ai.showLocal", "value": false})).unwrap();
-    assert!(enabled_models(&app).is_empty());
+    assert!(Settings::default().models.is_empty());
 }
 
 #[test]
@@ -205,7 +203,7 @@ fn the_settings_page_edits_the_draft() {
     let mut app = app();
     add_model(&mut app, z_image("z"));
     let (_, mut f) = dialog_fields(&mut app);
-    assert_eq!(f.get("section"), Some(&json!("integrations")));
+    assert_eq!(f.get("section"), Some(&json!("aiGen")));
     draw_section(&mut f);
     // Drawing changes nothing.
     assert_eq!(f["values"]["integrations"]["ai"], serde_json::to_value(&app.session.prefs().integrations.ai).unwrap());
@@ -245,22 +243,30 @@ fn connect_reads_the_servers_files_and_detect_adds_its_models() {
     f.insert(ACTION.into(), json!("connect"));
     after_body(&mut app, &mut f);
     assert_eq!(f[STATUS]["error"], false, "{}", f[STATUS]);
+    assert!(f[STATUS]["text"].as_str().unwrap().contains("2 checkpoints"));
     assert_eq!(f[FILES]["vae"], json!(["ae.safetensors", "qwen_3_4b.safetensors"]));
+    assert_eq!(f[FILES]["checkpoints"], json!(["sdxl_base_1.0.safetensors", "unknown_checkpoint.safetensors"]));
     assert!(f["values"]["integrations"]["ai"]["models"].as_array().unwrap().is_empty());
     draw_section(&mut f);
     f.insert(ACTION.into(), json!("detect"));
     after_body(&mut app, &mut f);
     let models = f["values"]["integrations"]["ai"]["models"].as_array().unwrap().clone();
-    // Both text-to-image models and the edit model are detected.
-    assert_eq!(models.len(), 3, "{models:?}");
+    // Both text-to-image models, the edit model and each checkpoint are detected.
+    assert_eq!(models.len(), 5, "{models:?}");
     assert_eq!(models[0]["unet"], "z_image_turbo_bf16.safetensors");
     assert_eq!(models[0]["clip"], "qwen_3_4b.safetensors");
     assert_eq!(models[1]["unet"], "flux1-dev.safetensors");
     assert_eq!(models[2]["family"], "qwenEdit");
+    assert_eq!(models[3]["name"], "sdxl base 1.0");
+    assert_eq!(models[3]["family"], "checkpoint");
+    assert_eq!(models[3]["checkpoint"], "sdxl_base_1.0.safetensors");
+    assert_eq!(models[4]["name"], "unknown checkpoint");
+    assert_eq!(models[4]["family"], "checkpoint");
+    assert_eq!(models[4]["checkpoint"], "unknown_checkpoint.safetensors");
     // Detecting again adds nothing twice.
     f.insert(ACTION.into(), json!("detect"));
     after_body(&mut app, &mut f);
-    assert_eq!(f["values"]["integrations"]["ai"]["models"].as_array().unwrap().len(), 3);
+    assert_eq!(f["values"]["integrations"]["ai"]["models"].as_array().unwrap().len(), 5);
     draw_section(&mut f);
     // A server that isn't there is reported in the dialog, not thrown.
     app.session.ai.transport = None;

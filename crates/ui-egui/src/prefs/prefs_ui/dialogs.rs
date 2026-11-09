@@ -135,7 +135,7 @@ pub fn width(fields: &Map<String, Value>, available: f32) -> Option<f32> {
 
 /// Open Edit › Preferences on `section`.
 pub fn open_preferences(app: &mut PhotocraftApp, section: &str) -> u64 {
-    let section = if SECTIONS.iter().any(|(id, _)| *id == section) { section } else { "general" };
+    let section = if section == "aiGen" || SECTIONS.iter().any(|(id, _)| *id == section) { section } else { "general" };
     let working = preference_values(app.session.prefs());
     let order = field_order(app.session.prefs(), &working);
     let id = open_kind(app, "prefs", "Preferences", json!({"section": section, "values": working, "__order": order}));

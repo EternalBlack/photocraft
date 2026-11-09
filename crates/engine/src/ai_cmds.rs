@@ -1,6 +1,6 @@
 //! Generative AI: fill the selection with an image from a local (ComfyUI) or cloud model.
 //!
-//! - `ai.generate` renders a prompt with one of the models set up in Preferences › Integrations › AI
+//! - `ai.generate` renders a prompt with one of the models set up in Preferences › AI Gen
 //!   (`integrations.ai`) and places the result on a new layer over the selection's bounds (the
 //!   whole canvas without a selection), masked by the selection. The selection's size decides
 //!   the size the model is asked for. It is a background job: cancellable, one undo step.
@@ -174,7 +174,7 @@ impl AiRuntime {
             return Err("AI generation needs the desktop app".into());
         }
         if !model.provider.is_local() && self.key(model.provider).is_empty() {
-            return Err(format!("{} needs an API key (Preferences › Integrations › AI › API Keys)", model.provider.label()));
+            return Err(format!("{} needs an API key (Preferences › AI Gen › API Keys)", model.provider.label()));
         }
         Ok(())
     }
@@ -1333,7 +1333,7 @@ fn generate(s: &mut Session, p: &Value) -> Result<Value> {
     let editing = p.get("mode").and_then(Value::as_str) == Some("imgEdit");
     let mut model = if editing { settings.edit_model(id) } else { settings.model(id) }.cloned().ok_or_else(|| {
         if id.is_empty() {
-            EngineError::Other("no AI model is configured: add one in Preferences › Integrations › AI".into())
+            EngineError::Other("no AI model is configured: add one in Preferences › AI Gen".into())
         } else {
             bad(cmd, format!("no AI model `{id}`"))
         }
@@ -1415,7 +1415,7 @@ fn generate(s: &mut Session, p: &Value) -> Result<Value> {
     }
     if inpaint && !model.can_inpaint() {
         return Err(EngineError::Other(format!(
-            "{} is not set up for inpainting (Preferences \u{203a} Integrations \u{203a} AI, its Supports inpainting box)",
+            "{} is not set up for inpainting (Preferences \u{203a} AI Gen \u{203a} Manage Models, its Supports inpainting box)",
             model.name
         )));
     }
@@ -1939,7 +1939,7 @@ fn can_generate(s: &Session) -> std::result::Result<(), String> {
         return Err("AI generation needs the desktop app".into());
     }
     if s.prefs().integrations.ai.listed().is_empty() {
-        return Err("no AI model is configured (Preferences › Integrations › AI)".into());
+        return Err("no AI model is configured (Preferences › AI Gen)".into());
     }
     Ok(())
 }

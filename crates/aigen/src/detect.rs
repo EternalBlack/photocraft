@@ -85,7 +85,7 @@ fn family_of(file: &str) -> Option<Family> {
 /// user is free to try anything else); the alternative is ComfyUI's own error, a tensor shape.
 pub fn problem(model: &Model) -> Option<String> {
     let name = if model.name.trim().is_empty() { model.family.label() } else { model.name.trim() };
-    let fix = "In Preferences › Integrations › AI › Manage Models, press Scan Server to repair it";
+    let fix = "In Preferences › AI Gen › Manage Models, press Scan Server to repair it";
     let unet = model.unet.to_ascii_lowercase();
     let is_21_file = family_of(&model.unet) == Some(Family::QwenImage21);
     match model.family {
@@ -196,8 +196,9 @@ pub fn adopted(existing: &Model, detected: &Model) -> Model {
     }
 }
 
-/// Models for the text-to-image, inpainting and edit files in `folders` (as [`crate::comfy_models`] returns them),
-/// each with its family's reference settings and the encoder / VAE files the server has.
+/// Models for the text-to-image, inpainting, edit, and checkpoint files in `folders` (as
+/// [`crate::comfy_models`] returns them), with their family's reference settings and available
+/// encoder / VAE files.
 pub fn detect(folders: &BTreeMap<String, Vec<String>>) -> Vec<Model> {
     let empty = Vec::new();
     let get = |k: &str| folders.get(k).unwrap_or(&empty);
@@ -336,7 +337,7 @@ pub fn detect(folders: &BTreeMap<String, Vec<String>>) -> Vec<Model> {
                 (m.refiner, m.refiner_clip, m.refiner_vae) = (turbo.clone(), clip, vae);
             }
             out.push(m);
-        } else if n.contains("sdxl") || n.contains("sd_xl") || n.contains("sd15") || n.contains("v1-5") {
+        } else {
             let mut m = Family::Checkpoint.preset();
             m.name = title(file);
             m.checkpoint = file.clone();
@@ -412,14 +413,19 @@ mod tests {
     }
 
     #[test]
-    fn recognises_image_models_only() {
+    fn detects_supported_diffusion_models_and_every_checkpoint() {
         let found = detect(&folders());
         let names: Vec<&str> = found.iter().map(|m| m.unet.as_str()).filter(|u| !u.is_empty()).collect();
         assert_eq!(names.len(), 17, "{names:?}");
         for skipped in ["kontext", "ltx", "hunyuan", "mystery", "unconditional", "layer"] {
             assert!(!names.iter().any(|n| n.contains(skipped)), "{skipped} in {names:?}");
         }
-        assert_eq!(found.iter().filter(|m| !m.checkpoint.is_empty()).count(), 2);
+        let checkpoints: Vec<&Model> = found.iter().filter(|m| !m.checkpoint.is_empty()).collect();
+        assert_eq!(checkpoints.len(), 3);
+        let ltx = checkpoints.iter().find(|m| m.checkpoint.starts_with("ltx")).unwrap();
+        assert_eq!((ltx.name.as_str(), ltx.family), ("ltx 2.3 22b dev fp8", Family::Checkpoint));
+        let hidream = checkpoints.iter().find(|m| m.checkpoint.starts_with("hidream")).unwrap();
+        assert_eq!(hidream.family, Family::HidreamO1);
     }
 
     #[test]

@@ -162,7 +162,7 @@ pub(super) fn preference_matches(section: &str, key: &str, query: &str) -> bool 
 
 pub(super) fn preference_sections(values: &Value, search: &str) -> Vec<(&'static str, &'static str)> {
     let query = search.trim();
-    SECTIONS
+    let mut sections: Vec<(&'static str, &'static str)> = SECTIONS
         .iter()
         .copied()
         .filter(|(id, title)| {
@@ -174,7 +174,16 @@ pub(super) fn preference_sections(values: &Value, search: &str) -> Vec<(&'static
                     .and_then(Value::as_object)
                     .is_some_and(|fields| fields.keys().any(|key| !prefs::is_hidden(&format!("{id}.{key}")) && preference_matches(id, key, query)))
         })
-        .collect()
+        .collect();
+    let ai_gen_terms = "AI Gen Manage Models API Keys Prompt Enhancement ComfyUI";
+    if query.is_empty()
+        || crate::i18n::Lang::EN.contains_ignore_case("AI Gen", query)
+        || crate::i18n::current().contains_ignore_case(tl!("AI Gen"), query)
+        || crate::i18n::Lang::EN.contains_ignore_case(ai_gen_terms, query)
+    {
+        sections.push(("aiGen", "AI Gen"));
+    }
+    sections
 }
 
 /// Preferences: section list on the left, the section's settings on the right.
@@ -236,7 +245,7 @@ fn prefs_body(ui: &mut egui::Ui, f: &mut Map<String, Value>, system: Option<egui
         crate::widgets::vline(ui, content_height);
         ui.vertical(|ui| {
             ui.set_width((ui.available_width() - 12.0).max(340.0));
-            let title = SECTIONS.iter().find(|(id, _)| *id == section).map_or("General", |(_, t)| *t);
+            let title = SECTIONS.iter().find(|(id, _)| *id == section).map_or(if section == "aiGen" { "AI Gen" } else { "General" }, |(_, t)| *t);
             ui.label(RichText::new(tl!(&title)).font(crate::theme::semibold(14.0)).color(t.text));
             let show_all = search.trim().is_empty()
                 || crate::i18n::Lang::EN.contains_ignore_case(title, search.trim())
@@ -246,15 +255,16 @@ fn prefs_body(ui: &mut egui::Ui, f: &mut Map<String, Value>, system: Option<egui
             egui::ScrollArea::vertical().max_height(content_height - 30.0).id_salt("prefs-scroll").show(ui, |ui| {
                 let order: Vec<String> =
                     f.get("__order").and_then(|o| o.get(&section)).and_then(|v| serde_json::from_value(v.clone()).ok()).unwrap_or_default();
-                if !has_visible_fields(&values, &section) {
+                if section == "aiGen" {
+                    if let Some(obj) = values.get_mut("integrations").and_then(Value::as_object_mut) {
+                        let height = ui.available_height();
+                        crate::ai_gen_ui::prefs_section(ui, obj, f, height);
+                    }
+                } else if !has_visible_fields(&values, &section) {
                     ui.add_space(4.0);
                     ui.label(RichText::new(tl!("These settings aren't available in PhotoCraft yet.")).color(t.text_faint));
                 } else if let Some(obj) = values.get_mut(&section).and_then(Value::as_object_mut) {
                     section_fields(ui, &section, obj, &order, lang, system, filter);
-                    if section == "integrations" && filter.is_empty() {
-                        let height = ui.available_height();
-                        crate::ai_gen_ui::prefs_section(ui, obj, f, height);
-                    }
                     if section == "fileHandling" {
                         ui.label(
                             RichText::new(tl!("0 turns this threshold off; SVG groups nested deeper than 100 levels are always rasterized."))
@@ -268,6 +278,7 @@ fn prefs_body(ui: &mut egui::Ui, f: &mut Map<String, Value>, system: Option<egui
                 }
                 if search.trim().is_empty()
                     && section != "integrations"
+                    && section != "aiGen"
                     && has_visible_fields(&values, &section)
                     && crate::widgets::secondary_button(ui, tl!("Reset Section"), 110.0).clicked()
                     && let Some(mut def) = prefs::Preferences::default().get(&section)
@@ -296,7 +307,7 @@ fn prefs_body(ui: &mut egui::Ui, f: &mut Map<String, Value>, system: Option<egui
 
 /// Does `section` have any setting the dialog shows (see [`prefs::HIDDEN_UNTIL_IMPLEMENTED`])?
 pub(super) fn has_visible_fields(values: &Value, section: &str) -> bool {
-    values.get(section).and_then(Value::as_object).is_some_and(|o| o.keys().any(|k| !prefs::is_hidden(&format!("{section}.{k}"))))
+    section == "aiGen" || values.get(section).and_then(Value::as_object).is_some_and(|o| o.keys().any(|k| !prefs::is_hidden(&format!("{section}.{k}"))))
 }
 
 /// JPEG and WebP have independent settings; unrelated format controls stay out of view.

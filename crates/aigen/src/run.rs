@@ -312,7 +312,7 @@ fn generate_bfl(transport: &dyn Transport, model: &Model, key: &str, job: &Job, 
             }
         }
     }
-    Err(Error::Server(format!("{who} did not finish within {timeout} seconds (raise the timeout in Preferences › Integrations › AI › ComfyUI)")))
+    Err(Error::Server(format!("{who} did not finish within {timeout} seconds (raise the timeout in Preferences › AI Gen › ComfyUI)")))
 }
 
 fn generate_comfy(transport: &dyn Transport, settings: &Settings, model: &Model, job: &Job, control: &Control<'_>, timeout: u64) -> Result<Generated> {
@@ -513,7 +513,7 @@ fn poll_comfy(
         }
     }
     let _ = transport.send(&Request::post_json(format!("{base}/interrupt"), b"{}".to_vec()).timeout(5));
-    Err(Error::Server(format!("ComfyUI did not finish within {timeout} seconds (raise the timeout in Preferences › Integrations › AI › ComfyUI)")))
+    Err(Error::Server(format!("ComfyUI did not finish within {timeout} seconds (raise the timeout in Preferences › AI Gen › ComfyUI)")))
 }
 
 /// `e`, ComfyUI's refusal of `model`'s workflow, with what to do when the server is older than

@@ -110,7 +110,7 @@ pub fn enhance(transport: &dyn Transport, base: &str, settings: &EnhanceSettings
     let id = settings.model(TextProvider::Local);
     let model = find(&id).ok_or_else(|| {
         Error::Config(format!(
-            "`{}` is not a local model to enhance with: choose one in Preferences › Integrations › AI › Prompt Enhancement",
+            "`{}` is not a local model to enhance with: choose one in Preferences › AI Gen › Prompt Enhancement",
             id.chars().take(60).collect::<String>()
         ))
     })?;
@@ -165,7 +165,7 @@ pub fn enhance(transport: &dyn Transport, base: &str, settings: &EnhanceSettings
     }
     stop(transport, &base, &job);
     Err(Error::Server(format!(
-        "{} did not finish within {timeout} seconds: raise the timeout in Preferences › Integrations › AI › Prompt Enhancement › Settings",
+        "{} did not finish within {timeout} seconds: raise the timeout in Preferences › AI Gen › Prompt Enhancement › Settings",
         model.name
     )))
 }
@@ -181,7 +181,7 @@ fn stop(transport: &dyn Transport, base: &str, job: &str) {
 fn missing(model: &LocalModel, e: Error) -> Error {
     match e {
         Error::Server(msg) if msg.contains("clip_name") || msg.contains(model.file) => Error::Server(format!(
-            "{} is not installed: the engine has no {}. Place it in ComfyUI's `text_encoders` folder and scan the server in Preferences › Integrations › AI › ComfyUI ({msg})",
+            "{} is not installed: the engine has no {}. Place it in ComfyUI's `text_encoders` folder and scan the server in Preferences › AI Gen › ComfyUI ({msg})",
             model.name, model.file
         )),
         e => e,

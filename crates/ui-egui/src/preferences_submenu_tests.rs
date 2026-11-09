@@ -16,7 +16,7 @@ fn preferences_submenu_reads_in_the_reference_order_with_two_separators() {
         &labels[1..],
         [
             "---",
-            "AI Integrations…",
+            "AI Gen…",
             "Interface…",
             "Workspace…",
             "Tools…",
@@ -39,14 +39,14 @@ fn preferences_submenu_reads_in_the_reference_order_with_two_separators() {
 }
 
 #[test]
-fn preferences_submenu_ids_are_unchanged() {
+fn preferences_submenu_ids_match_the_sections() {
     let ids: Vec<&str> = rows().into_iter().map(|r| r.1).collect();
     assert_eq!(
         ids,
         [
             "edit.preferences.general",
             "---",
-            "edit.preferences.integrations",
+            "edit.preferences.aiGen",
             "edit.preferences.interface",
             "edit.preferences.workspace",
             "edit.preferences.tools",

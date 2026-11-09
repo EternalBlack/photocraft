@@ -818,12 +818,8 @@ impl Model {
         ]
     }
 
-    /// The models a new installation lists, best and newest first: the cloud models (in the
-    /// order of Artificial Analysis' text-to-image board of 2026-10-13), then the local ones.
-    /// Each has the settings it was judged at: one prompt rendered by every model at
-    /// 1920 x 1080 on 2026-10-13. The local entries name the files that comparison ran; Scan
-    /// Server points an entry at the file the user's server has of the same model
-    /// ([`crate::detect::same_variant`]).
+    /// Recommended model templates, ordered cloud first and then local. New installations do
+    /// not add these automatically; users add models in Manage Models or scan their ComfyUI.
     pub fn defaults() -> Vec<Model> {
         let cloud = |name: &str| Model::cloud_presets().into_iter().find(|m| m.name == name);
         let local = |family: Family, name: &str| Model { name: name.into(), ..family.preset() };
@@ -940,10 +936,6 @@ pub struct Settings {
     pub comfy_launch: crate::launch::Launch,
     /// Give up on a generation after this long.
     pub timeout_seconds: u32,
-    /// Offer cloud models in the AI Gen panel's model lists.
-    pub show_cloud: bool,
-    /// Offer local models in the AI Gen panel's model lists.
-    pub show_local: bool,
     /// The groups of Preferences › Manage Models' list that are folded away (`cloud`,
     /// `internal`, `external`, `missing`): the user's view of the list, kept across launches.
     pub list_collapsed: Vec<String>,
@@ -956,7 +948,7 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { models: Model::defaults(), ..Self::default_without_models() }
+        Self::default_without_models()
     }
 }
 
@@ -968,8 +960,6 @@ impl Settings {
             comfy_autostart: false,
             comfy_launch: Default::default(),
             timeout_seconds: 600,
-            show_cloud: true,
-            show_local: true,
             list_collapsed: Vec::new(),
             models: Vec::new(),
             enhance: Default::default(),
@@ -981,16 +971,9 @@ impl Settings {
         self.models.iter().enumerate().filter(move |(_, m)| m.provider.is_local() == local).map(|(i, _)| i)
     }
 
-    /// The models the AI Gen panel offers, in its order: the ticked models of the kinds that are
-    /// shown, cloud before local, each kind in the order of `models`.
+    /// The enabled models the AI Gen panel offers, cloud before local and in their settings order.
     pub fn listed(&self) -> Vec<&Model> {
-        [(false, self.show_cloud), (true, self.show_local)]
-            .into_iter()
-            .filter(|(_, shown)| *shown)
-            .flat_map(|(local, _)| self.kind(local))
-            .filter_map(|i| self.models.get(i))
-            .filter(|m| m.enabled)
-            .collect()
+        [false, true].into_iter().flat_map(|local| self.kind(local)).filter_map(|i| self.models.get(i)).filter(|m| m.enabled).collect()
     }
 
     /// Put the models of each kind in the recommended order ([`Model::rank`]). Models of the
@@ -1145,8 +1128,9 @@ mod tests {
     }
 
     #[test]
-    fn a_new_installation_lists_the_models_that_were_compared() {
-        let s = Settings::default();
+    fn a_new_installation_starts_empty_and_recommended_templates_remain_available() {
+        assert!(Settings::default().models.is_empty());
+        let s = Settings { models: Model::defaults(), ..Settings::default_without_models() };
         let ids: Vec<&str> = s.models.iter().map(|m| m.id.as_str()).collect();
         assert_eq!(
             ids,
@@ -1186,8 +1170,6 @@ mod tests {
         let mut without = s.clone();
         without.models.iter_mut().filter(|m| m.family == Family::QwenImage21).for_each(|m| m.enabled = false);
         assert_eq!(without.edit_model("").map(|m| m.id.as_str()), Some("gpt-image-2-5-sunburst"));
-        without.show_cloud = false;
-        assert_eq!(without.edit_model("").map(|m| m.id.as_str()), Some("fibo-2-dev"));
         assert_eq!(s.edit_model("fibo-2-dev").map(|m| m.id.as_str()), Some("fibo-2-dev"));
         assert_eq!(preferred_edit([]), None);
         // Nothing that edits: the first listed, which refuses in words.
@@ -1198,7 +1180,7 @@ mod tests {
 
     #[test]
     fn the_listed_models_keep_the_settings_they_were_compared_at() {
-        let s = Settings::default();
+        let s = Settings { models: Model::defaults(), ..Settings::default_without_models() };
         // The settings the comparison was judged at.
         let by = |id: &str| s.model(id).unwrap();
         assert_eq!((by("z-image-turbo").steps, by("z-image-turbo").cfg, by("z-image-turbo").sampler.as_str()), (8, 2.0, "res_multistep"));
@@ -1227,7 +1209,7 @@ mod tests {
     }
 
     #[test]
-    fn the_panel_lists_cloud_models_first_in_the_users_order_and_only_the_kinds_shown() {
+    fn the_panel_lists_enabled_cloud_models_before_local_models_in_the_users_order() {
         let cloud = |id: &str, api: &str| Model { id: id.into(), ..Model::cloud(Provider::Openai, id, api, false) };
         let local = |id: &str, family: Family| Model { id: id.into(), ..family.preset() };
         let mut s = Settings::default_without_models();
@@ -1244,26 +1226,18 @@ mod tests {
         assert_eq!(ids(&s), ["pro", "mine", "sunburst", "ernie", "qwen"]);
         assert_eq!(s.model("").map(|m| m.id.as_str()), Some("pro"));
         assert_eq!((s.kind(false).collect::<Vec<_>>(), s.kind(true).collect::<Vec<_>>()), (vec![1, 3, 4, 5], vec![0, 2]));
-        // A kind that is switched off is not offered, and is not what an empty id means; a model
-        // of it can still be asked for by its id.
-        s.show_cloud = false;
-        assert_eq!(ids(&s), ["ernie", "qwen"]);
-        assert_eq!((s.model("").map(|m| m.id.as_str()), s.model("pro").map(|m| m.id.as_str())), (Some("ernie"), Some("pro")));
-        s.show_local = false;
-        assert!(ids(&s).is_empty() && s.model("").is_none());
         // The recommended order: by rank within each kind, a model the table doesn't know last
-        // of its kind, and the unticked one in its place.
-        (s.show_cloud, s.show_local) = (true, true);
+        // of its kind, and disabled models retain their place.
         s.sort_recommended();
         assert_eq!(s.models.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["sunburst", "off", "pro", "mine", "qwen", "ernie"]);
         assert!(
             cloud("x", "").rank() > cloud("x", "grok-imagine-image").rank()
                 && cloud("x", "gemini-3.1-flash-image").rank() == cloud("x", "gemini-3.1-flash-image-preview").rank()
         );
-        // Settings saved before these switches existed show both kinds.
-        let old: Settings = serde_json::from_str(r#"{"models":[]}"#).unwrap();
-        assert!(old.show_cloud && old.show_local);
-        assert_eq!(serde_json::to_value(&old).unwrap()["showCloud"], true);
+        // Older settings may still contain the removed kind switches; they are ignored.
+        let old: Settings = serde_json::from_str(r#"{"models":[],"showCloud":false,"showLocal":false}"#).unwrap();
+        assert!(old.listed().is_empty());
+        assert!(serde_json::to_value(&old).unwrap().get("showCloud").is_none());
     }
 
     #[test]

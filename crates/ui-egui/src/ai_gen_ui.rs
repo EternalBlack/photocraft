@@ -1,5 +1,5 @@
 //! Generative AI in the shell: the Window › AI Gen panel (a tab of the Properties dock group)
-//! and the model settings in Preferences › Integrations › AI.
+//! and the model settings in Preferences › AI Gen.
 //!
 //! The panel picks a model, takes a prompt and runs the engine's `ai.generate` as a background
 //! job: the result lands on a new layer over the selection. Its two tabs say what the user is
@@ -661,11 +661,11 @@ fn running(app: &PhotocraftApp) -> Option<JobInfo> {
     app.session.jobs().into_iter().find(|j| j.command == GENERATE)
 }
 
-/// Open Preferences on Integrations › AI › Manage Models with `model` selected for editing.
+/// Open Preferences on AI Gen › Manage Models with `model` selected for editing.
 pub fn open_settings(app: &mut PhotocraftApp, model: &str) -> u64 {
     let models = &app.session.prefs().integrations.ai.models;
     let index = models.iter().position(|m| m.id == model).unwrap_or(0);
-    let id = crate::prefs_ui::open_preferences(app, "integrations");
+    let id = crate::prefs_ui::open_preferences(app, "aiGen");
     if let Some(d) = app.ui.dialog_mut(id) {
         d.fields.insert(SELECTED.into(), json!(index));
         d.fields.insert(PAGE.into(), json!("models"));
@@ -674,18 +674,18 @@ pub fn open_settings(app: &mut PhotocraftApp, model: &str) -> u64 {
     id
 }
 
-/// Open Preferences on Integrations › AI › API Keys.
+/// Open Preferences on AI Gen › API Keys.
 pub fn open_api_keys(app: &mut PhotocraftApp) -> u64 {
-    let id = crate::prefs_ui::open_preferences(app, "integrations");
+    let id = crate::prefs_ui::open_preferences(app, "aiGen");
     if let Some(d) = app.ui.dialog_mut(id) {
         d.fields.insert(PAGE.into(), json!("keys"));
     }
     id
 }
 
-/// Open Preferences on Integrations › AI › Prompt Enhancement.
+/// Open Preferences on AI Gen › Prompt Enhancement.
 pub fn open_prompt_enhancement(app: &mut PhotocraftApp) -> u64 {
-    let id = crate::prefs_ui::open_preferences(app, "integrations");
+    let id = crate::prefs_ui::open_preferences(app, "aiGen");
     if let Some(d) = app.ui.dialog_mut(id) {
         d.fields.insert(PAGE.into(), json!("enhance"));
     }
@@ -2197,7 +2197,7 @@ fn render_size(model: &Model, w: u32, h: u32) -> (u32, u32) {
     }
 }
 
-// ---------- Preferences › Integrations › AI ----------
+// ---------- Preferences › AI Gen ----------
 
 /// Dialog fields (not preferences): the model being edited, the server's file lists, the API
 /// keys typed in this dialog, what the last "Connect" said, and a request for [`after_body`].
@@ -2585,9 +2585,8 @@ impl Group {
     }
 }
 
-/// A group's header in the list: its fold, its name, how many models it holds and (`note`) that
-/// the panel doesn't offer them, on its colour. Returns its click.
-fn group_header(ui: &mut egui::Ui, group: Group, count: usize, folded: bool, note: Option<&str>) -> egui::Response {
+/// A group's header in the list: its fold, its name and how many models it holds. Returns its click.
+fn group_header(ui: &mut egui::Ui, group: Group, count: usize, folded: bool) -> egui::Response {
     let t = Tokens::get(ui.ctx());
     let tone = group.tone(&t);
     let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 24.0), egui::Sense::click());
@@ -2599,9 +2598,6 @@ fn group_header(ui: &mut egui::Ui, group: Group, count: usize, folded: bool, not
     let mut job = egui::text::LayoutJob::default();
     job.append(tr(group.title()), 0.0, egui::TextFormat::simple(crate::theme::medium(11.5), t.text));
     job.append(&format!("  {count}"), 0.0, egui::TextFormat::simple(egui::FontId::proportional(11.0), t.text_faint));
-    if let Some(note) = note {
-        job.append(&format!("  · {note}"), 0.0, egui::TextFormat::simple(egui::FontId::proportional(11.0), t.text_faint));
-    }
     job.wrap = egui::text::TextWrapping::truncate_at_width((rect.width() - 30.0).max(10.0));
     let galley = ui.painter().layout_job(job);
     ui.painter().galley(egui::pos2(rect.left() + 24.0, rect.center().y - galley.size().y / 2.0), galley, t.text);
@@ -2651,11 +2647,7 @@ fn list_width(ui: &egui::Ui) -> f32 {
     ui.data(|d| d.get_temp::<(f32, f32)>(widths_id())).map_or(180.0, |(list, _)| list)
 }
 
-fn is_local_model(m: &Value) -> bool {
-    m.get("provider").and_then(Value::as_str).unwrap_or(Provider::Comfy.key()) == Provider::Comfy.key()
-}
-
-/// The Generative AI section's body: draws and edits `integrations.ai` in the dialog's draft
+/// The AI Gen preferences section: draws and edits `integrations.ai` in the dialog's draft
 /// (`obj` is the Integrations object; `f` the dialog's fields), in the `height` the dialog has
 /// for it. Pages cover models, API keys, prompt enhancement, and the ComfyUI connection.
 pub fn prefs_section(ui: &mut egui::Ui, obj: &mut Map<String, Value>, f: &mut Map<String, Value>, height: f32) {
@@ -2941,61 +2933,6 @@ fn filter_chip(ui: &mut egui::Ui, text: &str, on: bool) -> egui::Response {
     resp
 }
 
-/// Add the recommended models ([`Model::defaults`]) the draft doesn't list: a cloud model by its
-/// provider and model id, a local one by what model its file is. Returns how many were added.
-fn restore_defaults(ai: &mut Map<String, Value>, f: &mut Map<String, Value>) -> usize {
-    let mut added = 0;
-    for wanted in Model::defaults() {
-        let listed = ai.get("models").and_then(Value::as_array).into_iter().flatten().filter_map(model_of).any(|m| {
-            if wanted.provider.is_local() {
-                photocraft_aigen::detect::same_variant(&m, &wanted)
-            } else {
-                m.provider == wanted.provider && m.api_model.trim() == wanted.api_model
-            }
-        });
-        if !listed {
-            push_model(ai, f, wanted);
-            added += 1;
-        }
-    }
-    added
-}
-
-/// A switch: on or off at a click, drawn as one in every theme (the shared toggle is a
-/// checkbox in the Pro themes).
-fn switch(ui: &mut egui::Ui, on: &mut bool) -> egui::Response {
-    let t = Tokens::get(ui.ctx());
-    let (rect, mut resp) = ui.allocate_exact_size(vec2(30.0, 17.0), egui::Sense::click());
-    if resp.clicked() {
-        *on = !*on;
-        resp.mark_changed();
-    }
-    let how_on = ui.ctx().animate_bool(resp.id, *on);
-    let radius = rect.height() / 2.0;
-    ui.painter().rect_filled(rect, radius, if *on { t.accent } else { t.field_border });
-    if resp.hovered() {
-        ui.painter().rect_stroke(rect, radius, egui::Stroke::new(1.0, t.text_faint), egui::StrokeKind::Outside);
-    }
-    let x = egui::lerp((rect.left() + radius)..=(rect.right() - radius), how_on);
-    ui.painter().circle_filled(egui::pos2(x, rect.center().y), radius - 2.0, egui::Color32::WHITE);
-    resp
-}
-
-/// One kind of model in the summary at the top of Manage Models: its name, how many there are,
-/// and a switch that offers the kind in the AI Gen panel or leaves it out. What the kind is, and
-/// what is worth knowing about it now, is the tooltip.
-fn kind_switch(ui: &mut egui::Ui, ai: &mut Map<String, Value>, key: &str, title: &str, count: usize, tip: &str) {
-    let t = Tokens::get(ui.ctx());
-    let mut shown = ai.get(key).and_then(Value::as_bool).unwrap_or(true);
-    let name = ui.label(RichText::new(tr(title)).color(if shown { t.text } else { t.text_faint }));
-    let number = ui.label(RichText::new(count.to_string()).color(t.text_faint));
-    let toggle = switch(ui, &mut shown);
-    for resp in [name, number, toggle] {
-        resp.on_hover_text(tip);
-    }
-    ai.insert(key.into(), json!(shown));
-}
-
 /// Move the model at `from` to where the model at `to` is (both positions in the draft's list),
 /// the ones between shifting by one: how a model is moved up or down past its neighbour in the
 /// list on screen, whatever the list is narrowed to.
@@ -3006,26 +2943,7 @@ fn move_model(models: &mut Vec<Value>, from: usize, to: usize) {
     }
 }
 
-/// Put the draft's models in the recommended order ([`Settings::sort_recommended`]): cloud first,
-/// each kind best and newest first. Entries that don't read as models keep their place at the end.
-fn sort_recommended(models: &mut Vec<Value>) {
-    let (mut known, unread): (Vec<(Model, Value)>, Vec<Value>) = {
-        let mut known = Vec::new();
-        let mut unread = Vec::new();
-        for v in models.drain(..) {
-            match model_of(&v) {
-                Some(m) => known.push((m, v)),
-                None => unread.push(v),
-            }
-        }
-        (known, unread)
-    };
-    known.sort_by_key(|(m, _)| (m.provider.is_local(), m.rank()));
-    models.extend(known.into_iter().map(|(_, v)| v).chain(unread));
-}
-
-/// Manage Models: what is set up (cloud and local models, each with a switch for the AI Gen
-/// panel), then every model in one list in the panel's order (cloud, then local), narrowed by
+/// Manage Models: every model in one list in the panel's order (cloud, then local), narrowed by
 /// what the models are used for, and the selected one's settings beside it, down to `bottom`.
 fn models_page(ui: &mut egui::Ui, ai: &mut Map<String, Value>, f: &mut Map<String, Value>, bottom: f32) {
     let t = Tokens::get(ui.ctx());
@@ -3033,10 +2951,7 @@ fn models_page(ui: &mut egui::Ui, ai: &mut Map<String, Value>, f: &mut Map<Strin
     let page = ui.available_width();
     let page_right = ui.cursor().left() + page;
 
-    // ----- what is set up, and Add Model -----
-    let count =
-        |local: bool| ai.get("models").and_then(Value::as_array).map_or(0, |ms| ms.iter().filter(|m| m.is_object() && is_local_model(m) == local).count());
-    let (clouds, locals) = (count(false), count(true));
+    // ----- Add Model -----
     // Which models can run now, and why the others can't.
     let standing = Standing::of(f);
     // A cloud model without its key can't run: say so here.
@@ -3050,35 +2965,6 @@ fn models_page(ui: &mut egui::Ui, ai: &mut Map<String, Value>, f: &mut Map<Strin
         .get(STATUS)
         .and_then(Value::as_object)
         .map(|status| (status.get("text").and_then(Value::as_str).unwrap_or("").to_string(), status.get("error").and_then(Value::as_bool).unwrap_or(false)));
-    let off = tr("Switched off, they are left out of the AI Gen panel's model lists; they stay set up.");
-    let cloud_tip =
-        format!("{} {off}", tr("Cloud models are run by their provider with your API key, and billed by it for each image. Best quality; nothing to install."));
-    let local_tip = format!("{} {}. {off}", tr("Local models are run on this computer by ComfyUI, free of charge, at"), text_of(ai, "comfyUrl"));
-    let add_width = 132.0;
-    ui.horizontal(|ui| {
-        kind_switch(ui, ai, "showCloud", "Cloud models", clouds, &cloud_tip);
-        ui.add_space(18.0);
-        kind_switch(ui, ai, "showLocal", "Local models", locals, &local_tip);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            let add = widgets::primary_button(ui, &format!("+ {}", tr("Add Model")), add_width);
-            egui::Popup::menu(&add).show(|ui| {
-                widgets::menu_scroll(ui, |ui| {
-                    for (heading, presets) in add_presets() {
-                        ui.label(RichText::new(tr(heading)).color(t.text_faint).size(11.0));
-                        for (title, preset) in presets {
-                            if ui.button(title).clicked() {
-                                push_model(ai, f, preset);
-                                // Whatever the list was narrowed to, the new model is in view.
-                                filter = Filter::All;
-                                ui.close();
-                            }
-                        }
-                        ui.add_space(4.0);
-                    }
-                });
-            });
-        });
-    });
     // What needs doing before a model can run is said in the open, not in a tooltip: a provider
     // without its key, a server that could not be read.
     let problem = |ui: &mut egui::Ui, text: &str, color: egui::Color32| {
@@ -3160,7 +3046,6 @@ fn models_page(ui: &mut egui::Ui, ai: &mut Map<String, Value>, f: &mut Map<Strin
     let footer = 34.0;
     let pane = (bottom - ui.cursor().top() - footer - 4.0).max(MIN_PANE_HEIGHT - footer);
     let files = known_files(f);
-    let (show_cloud, show_local) = (ai.get("showCloud").and_then(Value::as_bool).unwrap_or(true), ai.get("showLocal").and_then(Value::as_bool).unwrap_or(true));
     let mut remove = None;
     // A model moved up or down: (its position, the position of the neighbour it passes).
     let mut moved: Option<(usize, usize)> = None;
@@ -3169,8 +3054,8 @@ fn models_page(ui: &mut egui::Ui, ai: &mut Map<String, Value>, f: &mut Map<Strin
     let selected_lack = selected.and_then(|i| parsed.get(i)).and_then(Option::as_ref).and_then(|m| standing.missing(m).map(|lack| (lack, m.clone())));
     if listed.is_empty() {
         let hint = match filter {
-            Filter::All => "No models yet. Restore Defaults lists the recommended ones; Scan Server adds the ones your ComfyUI server has.",
-            Filter::Create => "No text-to-image models yet. Restore Defaults lists the recommended ones.",
+            Filter::All => "No models yet. Add one with Add Model or scan your ComfyUI server.",
+            Filter::Create => "No text-to-image models yet. Add one with Add Model or scan your ComfyUI server.",
             Filter::Edit => "No editing models yet. Scan Server adds the ones your ComfyUI server has; cloud models edit too.",
             Filter::Inpaint => "No inpainting models yet. Add one with Add Model, or tick Supports inpainting on a model.",
         };
@@ -3188,10 +3073,8 @@ fn models_page(ui: &mut egui::Ui, ai: &mut Map<String, Value>, f: &mut Map<Strin
                         if n > 0 {
                             ui.add_space(8.0);
                         }
-                        let offered = if *group == Group::Cloud { show_cloud } else { show_local };
                         let is_folded = folded(*group, &collapsed);
-                        let note = (!offered).then(|| tr("not offered in the panel"));
-                        if group_header(ui, *group, rows.len(), is_folded, note).clicked() {
+                        if group_header(ui, *group, rows.len(), is_folded).clicked() {
                             if is_folded {
                                 collapsed.retain(|c| c != group.key());
                             } else {
@@ -3374,23 +3257,31 @@ fn models_page(ui: &mut egui::Ui, ai: &mut Map<String, Value>, f: &mut Map<Strin
         selected = neighbour.map(|&x| if x > i { x - 1 } else { x });
     }
 
-    // ----- under the list: what fills and orders it -----
+    // ----- under the list -----
     ui.add_space(6.0);
-    let mut reorder = false;
-    let mut restore = false;
+    let mut add = None;
     ui.horizontal(|ui| {
+        let add_button = widgets::primary_button(ui, &format!("+ {}", tr("Add Model")), 132.0);
+        egui::Popup::menu(&add_button).show(|ui| {
+            widgets::menu_scroll(ui, |ui| {
+                for (heading, presets) in add_presets() {
+                    ui.label(RichText::new(tr(heading)).color(t.text_faint).size(11.0));
+                    for (title, preset) in presets {
+                        if ui.button(title).clicked() {
+                            add = Some(preset);
+                            ui.close();
+                        }
+                    }
+                    ui.add_space(4.0);
+                }
+            });
+        });
         if widgets::secondary_button(ui, tr("Scan Server"), 104.0)
             .on_hover_text(tr("Add a model for every text-to-image, inpainting and edit model file the ComfyUI server has, and point the listed models at the files it has of them"))
             .clicked()
         {
             f.insert(ACTION.into(), json!("detect"));
         }
-        restore = widgets::secondary_button(ui, tr("Restore Defaults"), 128.0)
-            .on_hover_text(tr("Add the recommended models that are missing from the list. Nothing is removed or changed"))
-            .clicked();
-        reorder = widgets::secondary_button(ui, tr("Recommended Order"), 150.0)
-            .on_hover_text(tr("Put the models in the recommended order: the best and newest first, cloud models before local ones. The selected model's arrows move one model up or down"))
-            .clicked();
         let prune = ui
             .add_enabled_ui(!stale.is_empty(), |ui| widgets::secondary_button(ui, tr("Remove Not Installed…"), 170.0))
             .inner
@@ -3407,23 +3298,14 @@ fn models_page(ui: &mut egui::Ui, ai: &mut Map<String, Value>, f: &mut Map<Strin
             ui.add(egui::Label::new(job)).on_hover_text(text);
         }
     });
-    if reorder {
-        let was = selected.and_then(|i| models.get(i)).cloned();
-        sort_recommended(&mut models);
-        selected = was.and_then(|was| models.iter().position(|m| *m == was));
-        filter = Filter::All;
-    }
     ai.insert("models".into(), Value::Array(models));
-    if restore {
-        let added = restore_defaults(ai, f);
-        let text = if added == 0 { tr("The recommended models are all listed.").to_string() } else { format!("{added} {}", tr("recommended models added")) };
-        f.insert(STATUS.into(), json!({"error": false, "text": text}));
+    // A list that shows nothing keeps the selection for when it shows it again.
+    if let Some(i) = selected {
+        f.insert(SELECTED.into(), json!(i));
+    }
+    if let Some(model) = add {
+        push_model(ai, f, model);
         filter = Filter::All;
-    } else {
-        // A list that shows nothing keeps the selection for when it shows it again.
-        if let Some(i) = selected {
-            f.insert(SELECTED.into(), json!(i));
-        }
     }
     f.insert(FILTER.into(), json!(filter.key()));
     ai.insert("listCollapsed".into(), json!(collapsed));
@@ -3803,8 +3685,8 @@ fn draft(f: &Map<String, Value>) -> Value {
 /// detected models for a scan, and say what happened.
 fn connected(f: &mut Map<String, Value>, action: &str, result: &Value) {
     let folders = result.get("folders").cloned().unwrap_or_else(|| json!({}));
-    let count = folders.as_object().into_iter().flat_map(Map::values).filter_map(Value::as_array).map(Vec::len).sum::<usize>();
-    let mut text = format!("{} · {count} {}", tr("Connected"), tr("model files"));
+    let checkpoints = folders.get("checkpoints").and_then(Value::as_array).map_or(0, Vec::len);
+    let mut text = format!("{} · {checkpoints} {}", tr("Connected"), tr("checkpoints"));
     if action == "detect" {
         let (added, repaired, matched) = add_detected(f, &folders);
         text = format!("{text} · {added} {}", tr("models added"));
